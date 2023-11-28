@@ -23,7 +23,9 @@ fn main() {
                         println!("Failed to send message response; received {msg}");
                     }
                 } else {
-                    println!("{:?}", &buf[..size]);
+                    println!("reg: {:?}", &buf[..size]);
+                    buf[..size].iter().for_each(|b| print!("{:#x}", b));
+                    println!();
                     // let header = DnsHeader::new(
                     //     1234,
                     //     dns_starter_rust::QrIndicator::Reply,
