@@ -3,6 +3,8 @@
 
 use std::net::UdpSocket;
 
+use dns_starter_rust::{DnsHeader, OpCode, RecursionDesired, ResponseCode};
+
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     // println!("Logs from your program will appear here!");
@@ -14,12 +16,42 @@ fn main() {
     loop {
         match udp_socket.recv_from(&mut buf) {
             Ok((size, source)) => {
-                let _received_data = String::from_utf8_lossy(&buf[0..size]);
-                println!("Received {} bytes from {}", size, source);
-                let response = [];
-                udp_socket
-                    .send_to(&response, source)
-                    .expect("Failed to send response");
+                if size < 12 {
+                    let err_msg =
+                        format!("Invalid number of bytes for received packet; received {size}\n");
+                    if let Err(msg) = udp_socket.send_to(err_msg.as_bytes(), source) {
+                        println!("Failed to send message response; received {msg}");
+                    }
+                } else {
+                    let header = DnsHeader::new(
+                        1234,
+                        dns_starter_rust::QrIndicator::Reply,
+                        OpCode::Query,
+                        dns_starter_rust::AuthAnswer::NotAuthoritative,
+                        dns_starter_rust::Truncation::NotTruncated,
+                        RecursionDesired::NoRecursion,
+                        dns_starter_rust::RecursionStatus::NotAvailable,
+                        0,
+                        ResponseCode::NoError,
+                        0,
+                        0,
+                        0,
+                        0,
+                    );
+                    let hdr = <[u8; 12]>::from(header);
+                    if let Err(msg) = udp_socket.send_to(&hdr, source) {
+                        println!("Failed to send message response; received {msg}");
+                    }
+                }
+                // (0..size).for_each(|i| {
+                //     println!("{:?}", buf[i]);
+                // });
+                // let received_data = String::from_utf8_lossy(&buf[0..size]);
+                // println!("{size} {:?}", received_data);
+                // let response = [];
+                // udp_socket
+                //     .send_to(&response, source)
+                //     .expect("Failed to send response");
             }
             Err(e) => {
                 eprintln!("Error receiving data: {}", e);
