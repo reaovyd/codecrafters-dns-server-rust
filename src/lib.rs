@@ -119,6 +119,7 @@ impl TryFrom<&[u8]> for DnsHeader {
             let (qr, opcode, aa, tc, rd, rs, reserved, rcode) = {
                 let qoatrrrr = &value[2..4];
                 let first = qoatrrrr[0];
+                println!("{:?}", first);
                 let second = qoatrrrr[1];
 
                 let rd = RecursionDesired::from(first & 0b00000001);
