@@ -1,9 +1,6 @@
-// Uncomment this block to pass the first stage
-// use std::net::UdpSocket;
-
 use std::net::UdpSocket;
 
-use dns_starter_rust::{DnsHeader, OpCode, RecursionDesired, ResponseCode};
+use dns_starter_rust::{header_types::*, parser::section::question::parse_qsection, DnsHeader};
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -23,8 +20,42 @@ fn main() {
                         println!("Failed to send message response; received {msg}");
                     }
                 } else if let Ok(hdr) = DnsHeader::try_from(&buf[0..12]) {
-                    println!("{:?}", hdr);
-                    println!("{:02x?}", buf);
+                    if let Some(payload) = &buf.get(12..) {
+                        match hdr.qr() {
+                            QrIndicator::Question => {
+                                let qdcount = hdr.qdcount().to_owned();
+                                if let Ok(qsections) = parse_qsection(payload, qdcount) {
+                                    let qsections = qsections
+                                        .into_iter()
+                                        .map(Vec::<u8>::from)
+                                        .collect::<Vec<Vec<u8>>>();
+                                    let mut res = <[u8; 12]>::from(DnsHeader::new(
+                                        1234,
+                                        QrIndicator::Reply,
+                                        OpCode::Query,
+                                        AuthAnswer::NotAuthoritative,
+                                        Truncation::NotTruncated,
+                                        RecursionDesired::NoRecursion,
+                                        RecursionStatus::NotAvailable,
+                                        0,
+                                        ResponseCode::NoError,
+                                        qsections.len() as u16,
+                                        0,
+                                        0,
+                                        0,
+                                    ))
+                                    .to_vec();
+                                    for mut section in qsections {
+                                        res.append(&mut section);
+                                    }
+                                    println!("{:?}", res);
+                                }
+                            }
+                            QrIndicator::Reply => todo!(),
+                        }
+                    } else {
+                        println!("error parsing");
+                    }
                 } else {
                     println!("error parsing");
                 }
