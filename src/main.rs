@@ -24,6 +24,7 @@ fn main() {
                     }
                 } else if let Ok(hdr) = DnsHeader::try_from(&buf[0..12]) {
                     println!("{:?}", hdr);
+                    println!("{:x?}", buf);
                 } else {
                     println!("error parsing");
                 }
