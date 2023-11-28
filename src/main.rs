@@ -22,29 +22,10 @@ fn main() {
                     if let Err(msg) = udp_socket.send_to(err_msg.as_bytes(), source) {
                         println!("Failed to send message response; received {msg}");
                     }
+                } else if let Ok(hdr) = DnsHeader::try_from(&buf[0..12]) {
+                    println!("{:?}", hdr);
                 } else {
-                    println!("reg: {:?}", &buf[..size]);
-                    buf[..size].iter().for_each(|b| print!("{:#x}, ", b));
-                    println!();
-                    // let header = DnsHeader::new(
-                    //     1234,
-                    //     dns_starter_rust::QrIndicator::Reply,
-                    //     OpCode::Query,
-                    //     dns_starter_rust::AuthAnswer::NotAuthoritative,
-                    //     dns_starter_rust::Truncation::NotTruncated,
-                    //     RecursionDesired::NoRecursion,
-                    //     dns_starter_rust::RecursionStatus::NotAvailable,
-                    //     0,
-                    //     ResponseCode::NoError,
-                    //     0,
-                    //     0,
-                    //     0,
-                    //     0,
-                    // );
-                    // let hdr = <[u8; 12]>::from(header);
-                    // if let Err(msg) = udp_socket.send_to(&hdr, source) {
-                    //     println!("Failed to send message response; received {msg}");
-                    // }
+                    println!("error parsing");
                 }
                 // (0..size).for_each(|i| {
                 //     println!("{:?}", buf[i]);

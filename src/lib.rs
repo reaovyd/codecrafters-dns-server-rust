@@ -1,3 +1,5 @@
+use anyhow::anyhow;
+
 #[derive(Default, Debug, PartialEq, Clone)]
 pub enum QrIndicator {
     #[default]
@@ -104,49 +106,54 @@ impl DnsHeader {
     }
 }
 
-impl From<&[u8; 12]> for DnsHeader {
-    fn from(value: &[u8; 12]) -> Self {
-        let id = {
-            let id = &value[0..2];
-            ((id[0] as u16) << 8) | (id[1] as u16)
-        };
-        let (qr, opcode, aa, tc, rd, rs, reserved, rcode) = {
-            let qoatrrrr = &value[2..4];
-            let first = qoatrrrr[0];
-            let second = qoatrrrr[1];
+impl TryFrom<&[u8]> for DnsHeader {
+    type Error = anyhow::Error;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 12 {
+            Err(anyhow!("Not enough bytes to create a header"))
+        } else {
+            let id = {
+                let id = &value[0..2];
+                ((id[0] as u16) << 8) | (id[1] as u16)
+            };
+            let (qr, opcode, aa, tc, rd, rs, reserved, rcode) = {
+                let qoatrrrr = &value[2..4];
+                let first = qoatrrrr[0];
+                let second = qoatrrrr[1];
 
-            let rd = RecursionDesired::from(first & 0b00000001);
-            let tc = Truncation::from((first & 0b00000010) >> 1);
-            let aa = AuthAnswer::from((first & 0b00000100) >> 2);
-            let opcode = OpCode::from((first & 0b01111000) >> 3);
-            let qr = QrIndicator::from((first & 0b10000000) >> 7);
+                let rd = RecursionDesired::from(first & 0b00000001);
+                let tc = Truncation::from((first & 0b00000010) >> 1);
+                let aa = AuthAnswer::from((first & 0b00000100) >> 2);
+                let opcode = OpCode::from((first & 0b01111000) >> 3);
+                let qr = QrIndicator::from((first & 0b10000000) >> 7);
 
-            let rcode = ResponseCode::from(second & 0b00001111);
-            let reserved = (second & 0b01110000) >> 4;
-            let ra = RecursionStatus::from((second & 0b10000000) >> 7);
+                let rcode = ResponseCode::from(second & 0b00001111);
+                let reserved = (second & 0b01110000) >> 4;
+                let ra = RecursionStatus::from((second & 0b10000000) >> 7);
 
-            (qr, opcode, aa, tc, rd, ra, reserved, rcode)
-        };
+                (qr, opcode, aa, tc, rd, ra, reserved, rcode)
+            };
 
-        let (qdcount, ancount, nscount, arcount) = {
-            let counts = [&value[4..6], &value[6..8], &value[8..10], &value[10..12]]
-                .map(|val| ((val[0] as u16) << 8) | (val[1] as u16));
-            (counts[0], counts[1], counts[2], counts[3])
-        };
-        DnsHeader {
-            id,
-            qr,
-            opcode,
-            aa,
-            tc,
-            rd,
-            rs,
-            reserved,
-            rcode,
-            qdcount,
-            ancount,
-            nscount,
-            arcount,
+            let (qdcount, ancount, nscount, arcount) = {
+                let counts = [&value[4..6], &value[6..8], &value[8..10], &value[10..12]]
+                    .map(|val| ((val[0] as u16) << 8) | (val[1] as u16));
+                (counts[0], counts[1], counts[2], counts[3])
+            };
+            Ok(DnsHeader {
+                id,
+                qr,
+                opcode,
+                aa,
+                tc,
+                rd,
+                rs,
+                reserved,
+                rcode,
+                qdcount,
+                ancount,
+                nscount,
+                arcount,
+            })
         }
     }
 }
@@ -334,13 +341,17 @@ mod tests {
 
     #[test]
     pub fn test_header_id_is_correct_number() {
-        let hdr = DnsHeader::from(&[0x7F, 0xAC, 0x97, 0x80, 0, 0, 0, 0, 0, 0, 0, 0]);
+        let hdr: [u8; 12] = [0x7F, 0xAC, 0x97, 0x80, 0, 0, 0, 0, 0, 0, 0, 0];
+        let hdr = DnsHeader::try_from(&hdr[..]).unwrap();
         assert_eq!(0x7FAC, hdr.id);
     }
 
     #[test]
     pub fn test_header_second_row_is_correct_bits() {
-        let hdr = DnsHeader::from(&[0x7F, 0xAC, 0x97, 0x80, 0, 0, 0, 0, 0, 0, 0, 0]);
+        let hdr = [
+            0x7F, 0xAC, 0x97, 0x80, 0x54, 0x12, 0x34, 0x64, 0x55, 0x20, 0x01, 0x00,
+        ];
+        let hdr = DnsHeader::try_from(&hdr[..]).unwrap();
         assert_eq!(QrIndicator::Reply, hdr.qr);
         assert_eq!(OpCode::Status, hdr.opcode);
         assert_eq!(AuthAnswer::Authoritative, hdr.aa);
@@ -353,9 +364,10 @@ mod tests {
 
     #[test]
     pub fn test_header_counts() {
-        let hdr = DnsHeader::from(&[
+        let hdr = [
             0x7F, 0xAC, 0x97, 0x80, 0x54, 0x12, 0x34, 0x64, 0x55, 0x20, 0x01, 0x00,
-        ]);
+        ];
+        let hdr = DnsHeader::try_from(&hdr[..]).unwrap();
 
         assert_eq!(0x5412, hdr.qdcount);
         assert_eq!(0x3464, hdr.ancount);
@@ -368,7 +380,7 @@ mod tests {
         let actual = [
             0x7F, 0xAC, 0x97, 0x80, 0x54, 0x12, 0x34, 0x64, 0x55, 0x20, 0x01, 0x00,
         ];
-        let hdr = DnsHeader::from(&actual);
+        let hdr = DnsHeader::try_from(&actual[..]).unwrap();
         let bytes = <[u8; 12]>::from(hdr);
         assert_eq!(actual, bytes);
     }
