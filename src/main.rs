@@ -24,7 +24,7 @@ fn main() {
                     }
                 } else {
                     println!("reg: {:?}", &buf[..size]);
-                    buf[..size].iter().for_each(|b| print!("{:#x}", b));
+                    buf[..size].iter().for_each(|b| print!("{:#x}, ", b));
                     println!();
                     // let header = DnsHeader::new(
                     //     1234,
