@@ -23,25 +23,26 @@ fn main() {
                         println!("Failed to send message response; received {msg}");
                     }
                 } else {
-                    let header = DnsHeader::new(
-                        1234,
-                        dns_starter_rust::QrIndicator::Reply,
-                        OpCode::Query,
-                        dns_starter_rust::AuthAnswer::NotAuthoritative,
-                        dns_starter_rust::Truncation::NotTruncated,
-                        RecursionDesired::NoRecursion,
-                        dns_starter_rust::RecursionStatus::NotAvailable,
-                        0,
-                        ResponseCode::NoError,
-                        0,
-                        0,
-                        0,
-                        0,
-                    );
-                    let hdr = <[u8; 12]>::from(header);
-                    if let Err(msg) = udp_socket.send_to(&hdr, source) {
-                        println!("Failed to send message response; received {msg}");
-                    }
+                    println!("{:?}", &buf[..size]);
+                    // let header = DnsHeader::new(
+                    //     1234,
+                    //     dns_starter_rust::QrIndicator::Reply,
+                    //     OpCode::Query,
+                    //     dns_starter_rust::AuthAnswer::NotAuthoritative,
+                    //     dns_starter_rust::Truncation::NotTruncated,
+                    //     RecursionDesired::NoRecursion,
+                    //     dns_starter_rust::RecursionStatus::NotAvailable,
+                    //     0,
+                    //     ResponseCode::NoError,
+                    //     0,
+                    //     0,
+                    //     0,
+                    //     0,
+                    // );
+                    // let hdr = <[u8; 12]>::from(header);
+                    // if let Err(msg) = udp_socket.send_to(&hdr, source) {
+                    //     println!("Failed to send message response; received {msg}");
+                    // }
                 }
                 // (0..size).for_each(|i| {
                 //     println!("{:?}", buf[i]);
