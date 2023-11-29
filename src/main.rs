@@ -1,6 +1,7 @@
 use std::net::UdpSocket;
 
 use dns_starter_rust::{header_types::*, parser::section::question::parse_qsection, DnsHeader};
+use nom::AsBytes;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -48,7 +49,9 @@ fn main() {
                                     for mut section in qsections {
                                         res.append(&mut section);
                                     }
-                                    println!("{:?}", res);
+                                    if let Err(err) = udp_socket.send_to(res.as_bytes(), source) {
+                                        eprintln!("Something wrong happened when writing! {err}");
+                                    }
                                 }
                             }
                             QrIndicator::Reply => todo!(),
