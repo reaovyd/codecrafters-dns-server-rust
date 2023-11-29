@@ -1,6 +1,10 @@
 use std::net::UdpSocket;
 
-use dns_starter_rust::{header_types::*, parser::section::question::parse_qsection, DnsHeader};
+use dns_starter_rust::{
+    header_types::*,
+    parser::section::{answer::ASection, parse_all_sections, Section, SectionBytes},
+    DnsHeader,
+};
 use nom::AsBytes;
 
 fn main() {
@@ -25,11 +29,32 @@ fn main() {
                         match hdr.qr() {
                             QrIndicator::Question => {
                                 let qdcount = hdr.qdcount().to_owned();
-                                if let Ok(qsections) = parse_qsection(payload, qdcount) {
-                                    let qsections = qsections
-                                        .into_iter()
-                                        .map(Vec::<u8>::from)
-                                        .collect::<Vec<Vec<u8>>>();
+                                let ancount = hdr.ancount().to_owned();
+                                if let Ok((qsections, asections)) =
+                                    parse_all_sections(payload, qdcount, ancount)
+                                {
+                                    let mut asections = Vec::new();
+                                    qsections.iter().for_each(|elem| {
+                                        let mut bytes = ASection::new(
+                                            elem.section().to_owned(),
+                                            (0x000000FF, [0x00, 0x00, 0x00, 0xFF]),
+                                            (0x0004, [0x00, 0x04]),
+                                            vec![76, 76, 21, 21],
+                                        )
+                                        .into_bytes();
+                                        asections.append(&mut bytes);
+                                    });
+
+                                    let mut qsections = qsections.into_iter().fold(
+                                        Vec::<u8>::new(),
+                                        |mut acc: Vec<u8>, elem| {
+                                            elem.into_bytes().into_iter().for_each(|byte| {
+                                                acc.push(byte);
+                                            });
+                                            acc
+                                        },
+                                    );
+
                                     let mut res = <[u8; 12]>::from(DnsHeader::new(
                                         1234,
                                         QrIndicator::Reply,
@@ -40,17 +65,16 @@ fn main() {
                                         RecursionStatus::NotAvailable,
                                         0,
                                         ResponseCode::NoError,
-                                        qsections.len() as u16,
-                                        0,
+                                        qdcount,
+                                        qdcount,
                                         0,
                                         0,
                                     ))
                                     .to_vec();
-                                    for mut section in qsections {
-                                        res.append(&mut section);
-                                    }
-                                    if let Err(err) = udp_socket.send_to(res.as_bytes(), source) {
-                                        eprintln!("Something wrong happened when writing! {err}");
+                                    res.append(&mut qsections);
+                                    res.append(&mut asections);
+                                    if let Err(err_msg) = udp_socket.send_to(&res, source) {
+                                        eprintln!("Error sending message; got {err_msg}");
                                     }
                                 }
                             }
