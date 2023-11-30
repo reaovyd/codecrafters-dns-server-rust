@@ -47,7 +47,6 @@ fn main() {
                                                 ancount += 1;
                                                 asections.append(&mut bytes);
                                             });
-
                                             let mut qsections = qsections.into_iter().fold(
                                                 Vec::<u8>::new(),
                                                 |mut acc: Vec<u8>, elem| {
