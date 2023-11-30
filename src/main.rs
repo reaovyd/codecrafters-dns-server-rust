@@ -26,6 +26,7 @@ fn main() {
                 } else {
                     match DnsHeader::try_from(&buf[0..12]) {
                         Ok(hdr) => {
+                            println!("{:?}", hdr);
                             if let Some(payload) = &buf.get(12..) {
                                 match hdr.qr() {
                                     QrIndicator::Question => {
