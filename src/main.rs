@@ -21,7 +21,7 @@ fn main() {
                     let err_msg =
                         format!("Invalid number of bytes for received packet; received {size}\n");
                     if let Err(msg) = udp_socket.send_to(err_msg.as_bytes(), source) {
-                        println!("Failed to send message response; received {msg}");
+                        eprintln!("Failed to send message response; received {msg}");
                     }
                 } else if let Ok(hdr) = DnsHeader::try_from(&buf[0..12]) {
                     if let Some(payload) = &buf.get(12..) {
@@ -86,10 +86,10 @@ fn main() {
                             QrIndicator::Reply => todo!(),
                         }
                     } else {
-                        eprintln!("error parsing");
+                        eprintln!("Error parsing; not enough bytes for the header!");
                     }
                 } else {
-                    eprintln!("error parsing");
+                    eprintln!("Error parsing; failed to parse the header!");
                 }
             }
             Err(e) => {
