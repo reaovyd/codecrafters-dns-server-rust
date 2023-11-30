@@ -28,7 +28,7 @@ fn main() {
                         Ok(hdr) => {
                             println!("{:?}", hdr);
                             if let Some(payload) = &buf.get(12..) {
-                                println!("{:?}", payload);
+                                println!("{:?}", String::from_utf8_lossy(payload));
                                 match hdr.qr() {
                                     QrIndicator::Question => {
                                         let qdcount = hdr.qdcount().to_owned();
