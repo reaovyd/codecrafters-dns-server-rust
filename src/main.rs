@@ -11,7 +11,7 @@ fn main() {
     let mut buf = [0; MAX_UDP_PACKET_SIZE];
     loop {
         match udp_socket.recv_from(&mut buf) {
-            Ok((size, source)) => {
+            Ok((_size, _source)) => {
                 let mut udp_buf = UdpBuffer::new(buf);
                 match udp_buf.read_dns_header() {
                     Ok(header) => {
