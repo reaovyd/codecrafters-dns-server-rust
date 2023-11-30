@@ -47,6 +47,7 @@ fn main() {
                                                 ancount += 1;
                                                 asections.append(&mut bytes);
                                             });
+                                            println!("{:?}", qsections);
 
                                             let mut qsections = qsections.into_iter().fold(
                                                 Vec::<u8>::new(),
