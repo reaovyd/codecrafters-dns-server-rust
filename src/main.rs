@@ -47,7 +47,6 @@ fn main() {
                                                 ancount += 1;
                                                 asections.append(&mut bytes);
                                             });
-                                            println!("{:?}", qsections);
 
                                             let mut qsections = qsections.into_iter().fold(
                                                 Vec::<u8>::new(),
@@ -95,6 +94,7 @@ fn main() {
                             }
                         }
                         Err(msg) => {
+                            eprintln!("{:?}", &buf[0..12]);
                             eprintln!("Error parsing; header could not be parsed! {msg}");
                         }
                     }
