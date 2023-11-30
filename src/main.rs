@@ -28,9 +28,11 @@ fn main() {
                         Ok(hdr) => {
                             println!("{:?}", hdr);
                             if let Some(payload) = &buf.get(12..) {
+                                println!("{:?}", payload);
                                 println!("{:?}", String::from_utf8_lossy(payload));
                                 match hdr.qr() {
                                     QrIndicator::Question => {
+                                        // TODO: https://www.rfc-editor.org/rfc/rfc1035#section-4.1.4
                                         let qdcount = hdr.qdcount().to_owned();
                                         let ancount = hdr.ancount().to_owned();
                                         if let Ok((qsections, _asections)) =
@@ -86,6 +88,10 @@ fn main() {
                                             if let Err(err_msg) = udp_socket.send_to(&res, source) {
                                                 eprintln!("Error sending message; got {err_msg}");
                                             }
+                                        } else {
+                                            eprintln!(
+                                                "Error parsing; not enough bytes for the header!"
+                                            );
                                         }
                                     }
                                     QrIndicator::Reply => todo!(),
