@@ -35,6 +35,7 @@ fn main() {
                                         if let Ok((qsections, _asections)) =
                                             parse_all_sections(payload, qdcount, ancount)
                                         {
+                                            println!("{:?}", qsections);
                                             let mut asections = Vec::new();
                                             let mut ancount = 0;
                                             qsections.iter().for_each(|elem| {
