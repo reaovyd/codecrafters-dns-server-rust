@@ -89,7 +89,7 @@ impl TryFrom<u8> for RecursionStatus {
         match value {
             0 => Ok(Self::NotAvailable),
             1 => Ok(Self::Available),
-            _ => Err(anyhow!("UNSUPPORTED")),
+            _ => Err(anyhow!("RECURSION STATUS: UNSUPPORTED")),
         }
     }
 }
@@ -109,7 +109,7 @@ impl TryFrom<u8> for RecursionDesired {
         match value {
             0 => Ok(Self::NoRecursion),
             1 => Ok(Self::Recursion),
-            _ => Err(anyhow!("UNSUPPORTED")),
+            _ => Err(anyhow!("RECURSION DESIRED: UNSUPPORTED")),
         }
     }
 }
@@ -129,7 +129,7 @@ impl TryFrom<u8> for Truncation {
         match value {
             0 => Ok(Self::NotTruncated),
             1 => Ok(Self::Truncated),
-            _ => Err(anyhow!("UNSUPPORTED")),
+            _ => Err(anyhow!("TRUNCATION: UNSUPPORTED")),
         }
     }
 }
@@ -149,7 +149,7 @@ impl TryFrom<u8> for AuthAnswer {
         match value {
             0 => Ok(Self::NotAuthoritative),
             1 => Ok(Self::Authoritative),
-            _ => Err(anyhow!("UNSUPPORTED")),
+            _ => Err(anyhow!("AUTHANSWER: UNSUPPORTED")),
         }
     }
 }
@@ -169,7 +169,7 @@ impl TryFrom<u8> for QrIndicator {
         match value {
             0 => Ok(Self::Question),
             1 => Ok(Self::Reply),
-            _ => Err(anyhow!("UNSUPPORTED")),
+            _ => Err(anyhow!("QRINDICATOR: UNSUPPORTED")),
         }
     }
 }
@@ -190,7 +190,7 @@ impl TryFrom<u8> for OpCode {
             0 => Ok(Self::Query),
             1 => Ok(Self::IQuery),
             2 => Ok(Self::Status),
-            _ => Err(anyhow!("UNSUPPORTED")),
+            _ => Err(anyhow!("OPCODE: UNSUPPORTED")),
         }
     }
 }
