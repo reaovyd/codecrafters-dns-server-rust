@@ -33,6 +33,7 @@ fn main() {
                                     parse_all_sections(payload, qdcount, ancount)
                                 {
                                     let mut asections = Vec::new();
+                                    let mut ancount = 0;
                                     qsections.iter().for_each(|elem| {
                                         let mut bytes = ASection::new(
                                             elem.section().to_owned(),
@@ -41,6 +42,7 @@ fn main() {
                                             vec![76, 76, 21, 21],
                                         )
                                         .into_bytes();
+                                        ancount += 1;
                                         asections.append(&mut bytes);
                                     });
 
@@ -68,7 +70,7 @@ fn main() {
                                             _ => ResponseCode::NotImplemented,
                                         },
                                         *hdr.qdcount(),
-                                        0,
+                                        ancount,
                                         0,
                                         0,
                                     ))
