@@ -28,6 +28,7 @@ fn main() {
                         Ok(hdr) => {
                             println!("{:?}", hdr);
                             if let Some(payload) = &buf.get(12..) {
+                                println!("{:?}", payload);
                                 match hdr.qr() {
                                     QrIndicator::Question => {
                                         let qdcount = hdr.qdcount().to_owned();
@@ -35,7 +36,6 @@ fn main() {
                                         if let Ok((qsections, _asections)) =
                                             parse_all_sections(payload, qdcount, ancount)
                                         {
-                                            println!("{:?}", qsections);
                                             let mut asections = Vec::new();
                                             let mut ancount = 0;
                                             qsections.iter().for_each(|elem| {
