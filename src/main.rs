@@ -3,15 +3,12 @@ use std::net::UdpSocket;
 use dns_starter_rust::buffer::{UdpBuffer, MAX_UDP_PACKET_SIZE};
 
 fn main() {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    // println!("Logs from your program will appear here!");
-
-    // Uncomment this block to pass the first stage
     let udp_socket = UdpSocket::bind("127.0.0.1:2053").expect("Failed to bind to address");
     let mut buf = [0; MAX_UDP_PACKET_SIZE];
     loop {
         match udp_socket.recv_from(&mut buf) {
             Ok((_size, _source)) => {
+                println!("{:?}", buf);
                 let mut udp_buf = UdpBuffer::new(buf);
                 match udp_buf.read_dns_header() {
                     Ok(header) => {
