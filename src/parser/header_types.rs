@@ -13,6 +13,7 @@ pub enum OpCode {
     Query,
     IQuery,
     Status,
+    FutureUse,
 }
 
 #[derive(Default, Debug, PartialEq, Clone)]
@@ -190,7 +191,13 @@ impl TryFrom<u8> for OpCode {
             0 => Ok(Self::Query),
             1 => Ok(Self::IQuery),
             2 => Ok(Self::Status),
-            _ => Err(anyhow!("OPCODE: UNSUPPORTED")),
+            _ => {
+                if (3..=15).contains(&value) {
+                    Ok(Self::FutureUse)
+                } else {
+                    Err(anyhow!("OPCODE: UNSUPPORTED"))
+                }
+            }
         }
     }
 }
@@ -201,6 +208,7 @@ impl From<OpCode> for u8 {
             OpCode::Query => 0,
             OpCode::IQuery => 1,
             OpCode::Status => 2,
+            OpCode::FutureUse => 3,
         }
     }
 }
