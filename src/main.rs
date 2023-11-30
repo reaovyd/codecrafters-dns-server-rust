@@ -2,10 +2,9 @@ use std::net::UdpSocket;
 
 use dns_starter_rust::{
     header_types::*,
-    parser::section::{answer::ASection, parse_all_sections, Section, SectionBytes},
+    parser::section::{answer::ASection, parse_all_sections, SectionBytes},
     DnsHeader,
 };
-use nom::AsBytes;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -30,7 +29,7 @@ fn main() {
                             QrIndicator::Question => {
                                 let qdcount = hdr.qdcount().to_owned();
                                 let ancount = hdr.ancount().to_owned();
-                                if let Ok((qsections, asections)) =
+                                if let Ok((qsections, _asections)) =
                                     parse_all_sections(payload, qdcount, ancount)
                                 {
                                     let mut asections = Vec::new();
@@ -56,21 +55,25 @@ fn main() {
                                     );
 
                                     let mut res = <[u8; 12]>::from(DnsHeader::new(
-                                        1234,
+                                        hdr.id().to_owned(),
                                         QrIndicator::Reply,
-                                        OpCode::Query,
+                                        hdr.opcode().to_owned(),
                                         AuthAnswer::NotAuthoritative,
                                         Truncation::NotTruncated,
-                                        RecursionDesired::NoRecursion,
+                                        hdr.recursion_desired().to_owned(),
                                         RecursionStatus::NotAvailable,
                                         0,
-                                        ResponseCode::NoError,
-                                        qdcount,
-                                        qdcount,
+                                        match hdr.opcode() {
+                                            OpCode::Query => ResponseCode::NoError,
+                                            _ => ResponseCode::NotImplemented,
+                                        },
+                                        *hdr.qdcount(),
+                                        0,
                                         0,
                                         0,
                                     ))
                                     .to_vec();
+
                                     res.append(&mut qsections);
                                     res.append(&mut asections);
                                     if let Err(err_msg) = udp_socket.send_to(&res, source) {
@@ -81,20 +84,11 @@ fn main() {
                             QrIndicator::Reply => todo!(),
                         }
                     } else {
-                        println!("error parsing");
+                        eprintln!("error parsing");
                     }
                 } else {
-                    println!("error parsing");
+                    eprintln!("error parsing");
                 }
-                // (0..size).for_each(|i| {
-                //     println!("{:?}", buf[i]);
-                // });
-                // let received_data = String::from_utf8_lossy(&buf[0..size]);
-                // println!("{size} {:?}", received_data);
-                // let response = [];
-                // udp_socket
-                //     .send_to(&response, source)
-                //     .expect("Failed to send response");
             }
             Err(e) => {
                 eprintln!("Error receiving data: {}", e);
