@@ -48,6 +48,9 @@ impl UdpBuffer {
         let mut res: Vec<String> = Vec::new();
         loop {
             let mut len = self.peek()?;
+            if len == 0 {
+                break;
+            }
             if len & 0x3c == 0x3c {
                 let len = self.get_u16()? & 0b0011_1111_1111_1111;
                 let cached = cache.get(&len).ok_or(ParseError::SectionError)?;
