@@ -49,6 +49,7 @@ impl UdpBuffer {
         loop {
             let mut len = self.peek()?;
             if len == 0 {
+                println!("{:?}", self.inner);
                 println!("{:?}", self.pos);
                 break;
             }
