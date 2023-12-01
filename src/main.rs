@@ -16,8 +16,9 @@ fn main() {
             Ok((_size, _source)) => {
                 println!("{:?}", buf);
                 let mut udp_buf = UdpBuffer::new(buf);
-                match udp_buf.read_dns_header() {
+                match udp_buf.unpack_dns_header() {
                     Ok(header) => {
+                        udp_buf.read_section(header.counts().qdcount());
                         let out_header = DnsHeader::new(
                             header.txid(),
                             HeaderSecondRowFirstHalf::new(

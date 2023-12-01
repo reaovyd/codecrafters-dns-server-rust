@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     error::{ParseError, UdpBufferError},
     header::{DnsHeader, HeaderSecondRowFirstHalf, HeaderSecondRowSecondHalf, SectionCount},
@@ -26,15 +28,61 @@ impl UdpBuffer {
         todo!()
     }
 
-    pub fn read_sections(
+    // fn is_pointer_byte(&self) -> anyhow::Result<bool> {
+    //     Ok(self.peek()? & 0xC0 == 0xC0)
+    // }
+
+    // fn unpack_pointer_domain(&mut self) -> anyhow::Result<()> {
+    //     if self.is_pointer_byte()? {
+    //         let offset = self.get_u16()? as usize;
+    //         self.seek(offset)?;
+    //         Ok(())
+    //     } else {
+    //         Ok(())
+    //     }
+    // }
+    fn parse_domain(
         &mut self,
-        mut qdcount: u16,
-        mut ancount: u16,
-        mut nscount: u16,
-        mut arcount: u16,
-    ) -> anyhow::Result<()> {
-        let len = self.get_u8()?;
-        todo!()
+        cache: &mut HashMap<u16, Vec<String>>,
+    ) -> anyhow::Result<Vec<String>> {
+        let mut res: Vec<String> = Vec::new();
+        loop {
+            let mut len = self.peek()?;
+            if len & 0x3c == 0x3c {
+                let len = self.get_u16()? & 0b0011_1111_1111_1111;
+                let cached = cache.get(&len).ok_or(ParseError::SectionError)?;
+                for lbl in cached {
+                    res.push(lbl.clone())
+                }
+                break;
+            } else {
+                self.seek(self.pos + 1)?;
+                let mut s = String::new();
+                while len != 0 {
+                    let byte = char::try_from(self.get_u8()?)?;
+                    if !byte.is_alphanumeric() && byte != '-' {
+                        return Err(anyhow::anyhow!(ParseError::SectionError));
+                    } else {
+                        s.push(byte);
+                    }
+
+                    len -= 1;
+                }
+            }
+        }
+        Ok(res)
+    }
+
+    pub fn read_section(&mut self, count: u16) -> anyhow::Result<()> {
+        let mut cache = HashMap::new();
+        for _ in 0..count {
+            let st = self.pos as u16;
+            let domain = self.parse_domain(&mut cache)?;
+            let _type_class = self.get_u16()?;
+            cache.insert(st, domain);
+        }
+        println!("{:?}", cache);
+        Ok(())
         // loop {
         //     if !self.has_remaining() || qdcount == 0 {
         //         break;
@@ -58,7 +106,7 @@ impl UdpBuffer {
         // }
     }
 
-    pub fn read_dns_header(&mut self) -> anyhow::Result<DnsHeader> {
+    pub fn unpack_dns_header(&mut self) -> anyhow::Result<DnsHeader> {
         let txid = self.get_u16()?;
         let first_half = self.get_u8()?;
         let second_half = self.get_u8()?;
@@ -139,7 +187,7 @@ mod tests {
         buf2.into_iter().enumerate().for_each(|(idx, byte)| {
             buf[idx] = byte;
         });
-        let hdr_actual = UdpBuffer::new(buf).read_dns_header().unwrap();
+        let hdr_actual = UdpBuffer::new(buf).unpack_dns_header().unwrap();
         let hdr = DnsHeader::new(
             0x7f3b,
             HeaderSecondRowFirstHalf::new(
