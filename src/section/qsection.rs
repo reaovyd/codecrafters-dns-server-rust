@@ -35,9 +35,9 @@ impl From<QType> for u8 {
     }
 }
 
-impl TryFrom<u8> for QType {
+impl TryFrom<u16> for QType {
     type Error = ParseError;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
             252 => Ok(QType::Axfr),
             253 => Ok(QType::MailB),
@@ -48,9 +48,9 @@ impl TryFrom<u8> for QType {
     }
 }
 
-impl TryFrom<u8> for QClass {
+impl TryFrom<u16> for QClass {
     type Error = ParseError;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
             255 => Ok(QClass::Any),
             _ => Ok(QClass::NormalType(Type::try_from(value)?)),

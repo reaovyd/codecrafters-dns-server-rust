@@ -36,9 +36,9 @@ pub enum Type {
     Txt = 16,
 }
 
-impl TryFrom<u8> for Type {
+impl TryFrom<u16> for Type {
     type Error = ParseError;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(Type::A),
             2 => Ok(Type::Ns),
@@ -61,10 +61,10 @@ impl TryFrom<u8> for Type {
     }
 }
 
-impl TryFrom<u8> for Class {
+impl TryFrom<u16> for Class {
     type Error = ParseError;
 
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(Class::In),
             2 => Ok(Class::Cs),

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     error::{ParseError, UdpBufferError},
     header::{DnsHeader, HeaderSecondRowFirstHalf, HeaderSecondRowSecondHalf, SectionCount},
+    section::{Class, Type},
 };
 pub const MAX_UDP_PACKET_SIZE: usize = 512;
 pub const DNS_HEADER_SIZE: usize = 12;
@@ -41,21 +42,22 @@ impl UdpBuffer {
     //         Ok(())
     //     }
     // }
-    fn parse_domain(
+    fn unpack_domain(
         &mut self,
-        cache: &mut HashMap<u16, Vec<String>>,
+        cache: &mut HashMap<u16, (Vec<String>, Type, Class)>,
     ) -> anyhow::Result<Vec<String>> {
         let mut res: Vec<String> = Vec::new();
         loop {
             let mut len = self.peek()?;
             if len == 0 {
+                self.read()?;
                 break;
             }
-            if len & 0x3c == 0x3c {
+            if len & 0xC0 == 0xC0 {
                 let len = self.get_u16()? & 0b0011_1111_1111_1111;
                 let cached = cache.get(&len).ok_or(ParseError::SectionError)?;
-                for lbl in cached {
-                    res.push(lbl.clone())
+                for lbl in cached.0.iter() {
+                    res.push(lbl.clone());
                 }
                 break;
             } else {
@@ -80,35 +82,19 @@ impl UdpBuffer {
 
     pub fn read_section(&mut self, count: u16) -> anyhow::Result<()> {
         let mut cache = HashMap::new();
+        let start_of_section = self.pos;
         for _ in 0..count {
             let st = self.pos as u16;
-            let domain = self.parse_domain(&mut cache)?;
-            let _type_class = self.get_u16()?;
-            cache.insert(st, domain);
+            let domain = self.unpack_domain(&mut cache)?;
+            let t_type = Type::try_from(self.get_u16()?)?;
+            let class = Class::try_from(self.get_u16()?)?;
+            cache.insert(st, (domain, t_type, class));
         }
+        let end_of_section = self.pos;
+        println!("{:?}", &self.inner[start_of_section..end_of_section]);
+        println!("{start_of_section} {end_of_section}");
         println!("{:?}", cache);
         Ok(())
-        // loop {
-        //     if !self.has_remaining() || qdcount == 0 {
-        //         break;
-        //     }
-        //     let len = self.get_u8()?;
-        //     if len & 0xC0 == 0xC0 {
-        //         let len = len & 0x3F;
-        //         let next_byte = self.get_u8()?;
-        //         let left_off_pos = self.pos;
-        //         let seek_pos = ((len as u16) << 8) | next_byte as u16;
-        //         self.seek(seek_pos as usize)?;
-
-        //     } else {
-        //     }
-        //     qdcount -= 1;
-        // }
-        // if qdcount + ancount + nscount + arcount != 0 {
-        //     Err(anyhow::anyhow!(ParseError::SectionError))
-        // } else {
-        //     Ok(())
-        // }
     }
 
     pub fn unpack_dns_header(&mut self) -> anyhow::Result<DnsHeader> {
@@ -184,6 +170,46 @@ mod tests {
     };
 
     use super::UdpBuffer;
+
+    #[test]
+    #[allow(clippy::char_lit_as_u8)]
+    fn test_parse_domain() {
+        let mut buf = [0u8; 512];
+        [32, 75, 1, 0, 0, 5, 0, 0, 0, 0, 0, 0]
+            .into_iter()
+            .enumerate()
+            .for_each(|(idx, elem)| {
+                buf[idx] = elem;
+            });
+        [
+            6, 'g' as u8, 'o' as u8, 'o' as u8, 'g' as u8, 'l' as u8, 'e' as u8, 3, 'c' as u8,
+            'o' as u8, 'm' as u8, 0, 0, 1, 0, 1, 6, 'p' as u8, 'h' as u8, 'o' as u8, 't' as u8,
+            'o' as u8, 's' as u8, 0xC0, 12, 0, 1, 0, 1, 6, 'i' as u8, 'm' as u8, 'a' as u8,
+            'g' as u8, 'e' as u8, 's' as u8, 0xC0, 12, 0, 1, 0, 1, 3, 'd' as u8, 'b' as u8,
+            '1' as u8, 0xC0, 28, 0, 1, 0, 1, 3, 'd' as u8, 'b' as u8, '2' as u8, 0xC0, 28, 0, 1, 0,
+            1,
+        ]
+        .into_iter()
+        .enumerate()
+        .for_each(|(idx, elem)| {
+            buf[12 + idx] = elem;
+        });
+        let mut buf = UdpBuffer::new(buf);
+        let hdr = buf.unpack_dns_header().unwrap();
+        buf.read_section(hdr.counts().qdcount()).unwrap();
+        // buf[12] = 6;
+        // "google"
+        //     .as_bytes()
+        //     .iter()
+        //     .enumerate()
+        //     .for_each(|(idx, elem)| {
+        //         buf[13 + idx] = elem.to_owned();
+        //     });
+        // buf[19] = 3;
+        // "com".as_bytes().iter().enumerate().for_each(|(idx, elem)| {
+        //     buf[19 + idx] = elem.to_owned();
+        // });
+    }
 
     #[test]
     fn test_parse_header_udp_buffer() {
