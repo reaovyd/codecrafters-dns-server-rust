@@ -22,6 +22,22 @@ impl DnsHeader {
             counts,
         }
     }
+
+    pub fn txid(&self) -> u16 {
+        self.txid
+    }
+
+    pub fn header_first_half(&self) -> &HeaderSecondRowFirstHalf {
+        &self.hdr_sr_fh
+    }
+
+    pub fn header_second_half(&self) -> &HeaderSecondRowSecondHalf {
+        &self.hdr_sr_sh
+    }
+
+    pub fn counts(&self) -> &SectionCount {
+        &self.counts
+    }
 }
 
 impl From<DnsHeader> for [u8; 12] {
@@ -73,6 +89,18 @@ impl HeaderSecondRowSecondHalf {
             })
         }
     }
+
+    pub fn ra(&self) -> &RecursionAvailablity {
+        &self.ra
+    }
+
+    pub fn reserved(&self) -> u8 {
+        self.reserved
+    }
+
+    pub fn rcode(&self) -> &ResponseCode {
+        &self.rcode
+    }
 }
 
 impl From<HeaderSecondRowSecondHalf> for u8 {
@@ -115,6 +143,26 @@ impl HeaderSecondRowFirstHalf {
             tc,
             rd,
         }
+    }
+
+    pub fn qr(&self) -> &QueryResponse {
+        &self.qr
+    }
+
+    pub fn opcode(&self) -> &OpCode {
+        &self.opcode
+    }
+
+    pub fn aa(&self) -> &AuthAnswer {
+        &self.aa
+    }
+
+    pub fn tc(&self) -> &Truncation {
+        &self.tc
+    }
+
+    pub fn rd(&self) -> &RecursionDesired {
+        &self.rd
     }
 }
 
@@ -164,6 +212,22 @@ impl SectionCount {
             nscount,
             arcount,
         }
+    }
+
+    pub fn qdcount(&self) -> u16 {
+        self.qdcount
+    }
+
+    pub fn ancount(&self) -> u16 {
+        self.ancount
+    }
+
+    pub fn nscount(&self) -> u16 {
+        self.nscount
+    }
+
+    pub fn arcount(&self) -> u16 {
+        self.arcount
     }
 }
 

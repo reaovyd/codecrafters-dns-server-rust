@@ -1,6 +1,12 @@
 use std::net::UdpSocket;
 
-use dns_starter_rust::buffer::{UdpBuffer, MAX_UDP_PACKET_SIZE};
+use dns_starter_rust::{
+    buffer::{UdpBuffer, MAX_UDP_PACKET_SIZE},
+    header::{
+        AuthAnswer, DnsHeader, HeaderSecondRowFirstHalf, HeaderSecondRowSecondHalf, OpCode,
+        QueryResponse, RecursionAvailablity, ResponseCode, SectionCount, Truncation,
+    },
+};
 
 fn main() {
     let udp_socket = UdpSocket::bind("127.0.0.1:2053").expect("Failed to bind to address");
@@ -12,7 +18,37 @@ fn main() {
                 let mut udp_buf = UdpBuffer::new(buf);
                 match udp_buf.read_dns_header() {
                     Ok(header) => {
-                        println!("{:?}", header);
+                        let out_header = DnsHeader::new(
+                            header.txid(),
+                            HeaderSecondRowFirstHalf::new(
+                                QueryResponse::Response,
+                                header.header_first_half().opcode().clone(),
+                                AuthAnswer::NotAuthoritative,
+                                Truncation::NotTruncated,
+                                header.header_first_half().rd().clone(),
+                            ),
+                            HeaderSecondRowSecondHalf::new(
+                                RecursionAvailablity::NoRecursionAvailable,
+                                0,
+                                match header.header_first_half().opcode() {
+                                    OpCode::Query => ResponseCode::None,
+                                    _ => ResponseCode::NotImplemented,
+                                },
+                            )
+                            .expect(
+                                "if it fails, then reserved was something larger than expected...",
+                            ),
+                            SectionCount::new(
+                                header.counts().qdcount(),
+                                header.counts().qdcount(),
+                                0,
+                                0,
+                            ),
+                        );
+                        if let Err(msg) = udp_socket.send_to(&<[u8; 12]>::from(out_header), _source)
+                        {
+                            eprintln!("error sending; {msg}");
+                        }
                     }
                     Err(err) => {
                         eprintln!("Error parsing; {err}")

@@ -1,7 +1,12 @@
-use crate::error::ParseError;
+use crate::{buffer::UdpBuffer, error::ParseError};
 
 pub mod asection;
 pub mod qsection;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Section {
+    inner: Vec<u8>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Class {

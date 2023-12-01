@@ -1,5 +1,5 @@
 use crate::{
-    error::UdpBufferError,
+    error::{ParseError, UdpBufferError},
     header::{DnsHeader, HeaderSecondRowFirstHalf, HeaderSecondRowSecondHalf, SectionCount},
 };
 pub const MAX_UDP_PACKET_SIZE: usize = 512;
@@ -24,6 +24,38 @@ impl UdpBuffer {
 
     pub fn read_qsection(&self) -> anyhow::Result<()> {
         todo!()
+    }
+
+    pub fn read_sections(
+        &mut self,
+        mut qdcount: u16,
+        mut ancount: u16,
+        mut nscount: u16,
+        mut arcount: u16,
+    ) -> anyhow::Result<()> {
+        let len = self.get_u8()?;
+        todo!()
+        // loop {
+        //     if !self.has_remaining() || qdcount == 0 {
+        //         break;
+        //     }
+        //     let len = self.get_u8()?;
+        //     if len & 0xC0 == 0xC0 {
+        //         let len = len & 0x3F;
+        //         let next_byte = self.get_u8()?;
+        //         let left_off_pos = self.pos;
+        //         let seek_pos = ((len as u16) << 8) | next_byte as u16;
+        //         self.seek(seek_pos as usize)?;
+
+        //     } else {
+        //     }
+        //     qdcount -= 1;
+        // }
+        // if qdcount + ancount + nscount + arcount != 0 {
+        //     Err(anyhow::anyhow!(ParseError::SectionError))
+        // } else {
+        //     Ok(())
+        // }
     }
 
     pub fn read_dns_header(&mut self) -> anyhow::Result<DnsHeader> {
