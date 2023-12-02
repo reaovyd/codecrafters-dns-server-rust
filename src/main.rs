@@ -33,11 +33,6 @@ fn main() {
                         match header.header_first_half().qr() {
                             QueryResponse::Query => {
                                 if let Some(qsection) = qsection {
-                                    println!(
-                                        "query: {:?}, {:?}",
-                                        header.txid(),
-                                        transcriber.txid()
-                                    );
                                     let pending_pkt = Rc::new(RefCell::new(PendingPacket::new(
                                         (
                                             source,
@@ -48,6 +43,11 @@ fn main() {
                                         qsection.groups.len(),
                                         qsection.clone(),
                                     )));
+                                    println!(
+                                        "query: {:?}, {:?}",
+                                        header.txid(),
+                                        transcriber.txid()
+                                    );
                                     for group in qsection.groups {
                                         let mut hdr = <[u8; 12]>::from(DnsHeader::new(
                                             header.txid(),
