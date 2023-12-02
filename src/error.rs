@@ -10,6 +10,8 @@ pub enum ParseError {
     OverflowError { found: u8 },
     #[error("section parsing failed")]
     SectionError,
+    #[error("jump error during parsing")]
+    JumpError,
 }
 
 #[derive(Debug, Error)]

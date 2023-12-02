@@ -65,7 +65,6 @@ fn main() {
                                 let mut res = <[u8; 12]>::from(out_header).to_vec();
                                 res.extend(qsection_raw);
                                 res.extend(res_asection.raw_domain);
-                                println!("{:?}", res);
                                 if let Err(msg) = udp_socket.send_to(res.as_bytes(), _source) {
                                     eprintln!("error sending message! {msg}")
                                 }

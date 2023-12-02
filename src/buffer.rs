@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::str;
 
 use crate::{
     error::{ParseError, UdpBufferError},
@@ -21,137 +21,108 @@ impl UdpBuffer {
         UdpBuffer { inner, pos: 0 }
     }
 
-    fn unpack_asection(&mut self, count: u16) -> anyhow::Result<Section> {
-        let mut cache = BTreeMap::new();
-        let start_of_section = self.pos;
-        for _ in 0..count {
-            let st = self.pos as u16;
-            let domain = self.unpack_domain(&mut cache)?;
-            let t_type = Type::try_from(self.get_u16()?)?;
-            let class = Class::try_from(self.get_u16()?)?;
-            let ttl = self.get_u32()?;
-            let length = self.get_u16()?;
-            let mut data_section = Vec::new();
-            for _ in 0..length {
-                data_section.push(self.get_u8()?);
+    fn unpack_domain(&mut self, is_asection: bool) -> anyhow::Result<SectionGroup> {
+        let mut jumps = 0u8;
+        let mut reset_pos = None;
+        let mut domain = Vec::new();
+
+        loop {
+            let len = self.peek()?;
+            if len == 0 {
+                if jumps > 0 {
+                    self.seek(reset_pos.ok_or(ParseError::JumpError)?)?;
+                } else {
+                    self.read()?;
+                }
+                break;
             }
-            cache.insert(
-                st,
-                SectionGroup::new(domain, t_type, class, Some((ttl, length, data_section))),
-            );
+            if len & 0xC0 == 0xC0 {
+                jumps += 1;
+                let len = self.get_u16()?;
+                // so it doesn't reset_pos again
+                if reset_pos.is_none() {
+                    reset_pos = Some(self.pos);
+                }
+                self.seek(usize::try_from(len & 0b0011_1111_1111_1111)?)?;
+            } else {
+                let len = usize::try_from(self.get_u8()?)?;
+                let label = str::from_utf8(
+                    self.inner
+                        .get(self.pos..(self.pos + len))
+                        .ok_or(ParseError::SectionError)?,
+                )?
+                .to_owned();
+                self.seek(self.pos + len)?;
+                domain.push(label);
+            }
         }
-        let end_of_section = self.pos;
-        Ok(Section::new(
-            cache.into_values().collect(),
-            self.inner[start_of_section..end_of_section].to_vec(),
+        let t_type = Type::try_from(self.get_u16()?)?;
+        let class = Class::try_from(self.get_u16()?)?;
+        Ok(SectionGroup::new(
+            domain,
+            t_type,
+            class,
+            match is_asection {
+                true => {
+                    let (ttl, length) = (self.get_u32()?, self.get_u16()?);
+                    let end = self.pos + usize::try_from(length)?;
+                    let data = self
+                        .inner
+                        .get(self.pos..end)
+                        .ok_or(ParseError::SectionError)?
+                        .to_vec();
+
+                    self.seek(end)?;
+                    Some((ttl, length, data))
+                }
+                false => None,
+            },
         ))
     }
 
-    fn unpack_qsection(&mut self, count: u16) -> anyhow::Result<Section> {
-        let mut cache = BTreeMap::new();
-        let start_of_section = self.pos;
+    fn unpack_section(&mut self, count: u16, is_asection: bool) -> anyhow::Result<Section> {
+        let start_pos = self.pos;
+        let mut groups = Vec::new();
         for _ in 0..count {
-            let st = self.pos as u16;
-            let domain = self.unpack_domain(&mut cache)?;
-            let t_type = Type::try_from(self.get_u16()?)?;
-            let class = Class::try_from(self.get_u16()?)?;
-            cache.insert(st, SectionGroup::new(domain, t_type, class, None));
+            groups.push(self.unpack_domain(is_asection)?);
         }
-        let end_of_section = self.pos;
+        let end_pos = self.pos;
         Ok(Section::new(
-            cache.into_values().collect(),
-            self.inner[start_of_section..end_of_section].to_vec(),
+            groups,
+            self.inner
+                .get(start_pos..end_pos)
+                .ok_or(ParseError::SectionError)?
+                .to_vec(),
         ))
     }
 
     pub fn unpack(mut self) -> anyhow::Result<(DnsHeader, [Option<Section>; 4])> {
-        let dns_header = self.unpack_dns_header()?;
+        let hdr = self.unpack_dns_header()?;
+        let counts = hdr.counts();
         let (qdcount, ancount, nscount, arcount) = (
-            dns_header.counts().qdcount(),
-            dns_header.counts().ancount(),
-            dns_header.counts().nscount(),
-            dns_header.counts().arcount(),
+            counts.qdcount(),
+            counts.ancount(),
+            counts.nscount(),
+            counts.arcount(),
         );
-        println!("1. PARSING QSECTION HELLO WORLD!!!!");
-        let mut sections: [Option<Section>; 4] = [None, None, None, None];
+        let mut sections = [None, None, None, None];
         if qdcount > 0 {
-            sections[0] = match self.unpack_qsection(qdcount) {
-                Ok(ans) => Some(ans),
-                Err(_) => {
-                    eprintln!("{:?}", self.inner);
-                    None
-                }
-            }
+            sections[0] = Some(self.unpack_section(qdcount, false)?);
         }
 
         if ancount > 0 {
-            sections[1] = Some(self.unpack_asection(ancount)?);
+            sections[1] = Some(self.unpack_section(ancount, true)?);
         }
 
         if nscount > 0 {
-            sections[2] = Some(self.unpack_asection(nscount)?);
+            sections[2] = Some(self.unpack_section(nscount, true)?);
         }
 
         if arcount > 0 {
-            sections[3] = Some(self.unpack_asection(arcount)?);
+            sections[3] = Some(self.unpack_section(arcount, true)?);
         }
-        Ok((dns_header, sections))
+        Ok((hdr, sections))
     }
-
-    fn unpack_domain(
-        &mut self,
-        cache: &mut BTreeMap<u16, SectionGroup>,
-    ) -> anyhow::Result<Vec<String>> {
-        let mut res: Vec<String> = Vec::new();
-        loop {
-            let mut len = self.peek()?;
-            if len == 0 {
-                self.read()?;
-                break;
-            }
-            if len & 0xC0 == 0xC0 {
-                let len = self.get_u16()? & 0b0011_1111_1111_1111;
-                let cached = cache.get(&len).ok_or(ParseError::SectionError)?;
-                for lbl in cached.domain().iter() {
-                    res.push(lbl.clone());
-                }
-                break;
-            } else {
-                self.seek(self.pos + 1)?;
-                let mut s = String::new();
-                while len != 0 {
-                    let byte = char::try_from(self.get_u8()?)?;
-                    if !byte.is_alphanumeric() && byte != '-' {
-                        return Err(anyhow::anyhow!(ParseError::SectionError));
-                    } else {
-                        s.push(byte);
-                    }
-
-                    len -= 1;
-                }
-
-                res.push(s);
-            }
-        }
-        Ok(res)
-    }
-
-    // fn unpack_section(&mut self, count: u16) -> anyhow::Result<Section> {
-    //     let mut cache = BTreeMap::new();
-    //     let start_of_section = self.pos;
-    //     for _ in 0..count {
-    //         let st = self.pos as u16;
-    //         let domain = self.unpack_domain(&mut cache)?;
-    //         let t_type = Type::try_from(self.get_u16()?)?;
-    //         let class = Class::try_from(self.get_u16()?)?;
-    //         cache.insert(st, SectionGroup::new(domain, t_type, class));
-    //     }
-    //     let end_of_section = self.pos;
-    //     Ok(Section::new(
-    //         cache.into_values().collect(),
-    //         self.inner[start_of_section..end_of_section].to_vec(),
-    //     ))
-    // }
 
     fn unpack_dns_header(&mut self) -> anyhow::Result<DnsHeader> {
         let txid = self.get_u16()?;
@@ -227,6 +198,33 @@ mod tests {
     };
 
     use super::UdpBuffer;
+
+    #[test]
+    fn test_parse_domain_2() {
+        let mut buf = [
+            250, 44, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99, 17, 108, 111, 110, 103, 97, 115,
+            115, 100, 111, 109, 97, 105, 110, 110, 97, 109, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1, 3,
+            100, 101, 102, 192, 16, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0u8,
+        ];
+        let mut buf = UdpBuffer::new(buf);
+        let _hdr = buf.unpack().unwrap();
+    }
 
     #[test]
     #[allow(clippy::char_lit_as_u8)]
