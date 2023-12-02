@@ -98,7 +98,6 @@ impl UdpBuffer {
 
     pub fn unpack(mut self) -> anyhow::Result<(DnsHeader, [Option<Section>; 4])> {
         let hdr = self.unpack_dns_header()?;
-        println!("{:?}", hdr);
         let counts = hdr.counts();
         let (qdcount, ancount, nscount, arcount) = (
             counts.qdcount(),
