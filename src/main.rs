@@ -28,7 +28,6 @@ fn main() {
         match udp_socket.recv_from(&mut buf) {
             Ok((_size, source)) => {
                 let udp_buf = UdpBuffer::new(buf);
-                println!("{:?}", buf);
                 match udp_buf.unpack() {
                     Ok((header, [qsection, ansection, _nssection, _arsection])) => {
                         match header.header_first_half().qr() {
