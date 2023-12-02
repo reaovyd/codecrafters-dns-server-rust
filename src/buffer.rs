@@ -181,6 +181,7 @@ impl UdpBuffer {
         }
     }
 
+    #[allow(dead_code)]
     fn has_remaining(&mut self) -> bool {
         self.pos >= MAX_UDP_PACKET_SIZE
     }
@@ -244,7 +245,7 @@ mod tests {
             buf[12 + idx] = elem;
         });
         let mut buf = UdpBuffer::new(buf);
-        let hdr = buf.unpack_dns_header().unwrap();
+        let _hdr = buf.unpack_dns_header().unwrap();
         // buf.unpack_section(hdr.counts().qdcount()).unwrap();
         // buf[12] = 6;
         // "google"
