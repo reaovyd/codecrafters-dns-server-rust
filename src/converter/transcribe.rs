@@ -16,6 +16,7 @@ impl Transcriber {
             self.txid = 0;
         }
         self.txid_to_pending.insert(self.txid, pending_packet);
+        self.txid += 1;
     }
 
     pub fn txid(&self) -> u16 {
