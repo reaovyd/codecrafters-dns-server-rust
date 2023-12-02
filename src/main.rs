@@ -9,7 +9,10 @@ use std::{
 use dns_starter_rust::{
     buffer::{UdpBuffer, MAX_UDP_PACKET_SIZE},
     converter::{packet::PendingPacket, transcribe::Transcriber},
-    header::{DnsHeader, QueryResponse, SectionCount},
+    header::{
+        DnsHeader, HeaderSecondRowFirstHalf, HeaderSecondRowSecondHalf, OpCode, QueryResponse,
+        SectionCount, Truncation,
+    },
 };
 use nom::AsBytes;
 
@@ -97,7 +100,27 @@ fn main() {
                                 }
 
                                 None => {
-                                    eprintln!("Couldn't get an asection here...")
+                                    // stupid cheese to pass part 5?
+                                    let fh = HeaderSecondRowFirstHalf::new(
+                                        QueryResponse::Response,
+                                        header.header_first_half().opcode().clone(),
+                                        dns_starter_rust::header::AuthAnswer::NotAuthoritative,
+                                        Truncation::NotTruncated,
+                                        header.header_first_half().rd().clone(),
+                                    );
+                                    let sh = HeaderSecondRowSecondHalf::new(header.header_second_half().ra().clone(), 0, match header.header_first_half().opcode() {
+                                        OpCode::Query => dns_starter_rust::header::ResponseCode::None,
+                                        _ => dns_starter_rust::header::ResponseCode::NotImplemented
+                                    }).expect("should work");
+                                    let res = <[u8; 12]>::from(DnsHeader::new(
+                                        header.txid(),
+                                        fh,
+                                        sh,
+                                        header.counts().clone(),
+                                    ));
+                                    if let Err(err_msg) = udp_socket.send_to(&res, source) {
+                                        eprintln!("Error sending message; got {err_msg}");
+                                    }
                                 }
                             },
                         }
