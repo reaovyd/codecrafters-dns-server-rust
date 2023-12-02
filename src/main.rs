@@ -45,7 +45,7 @@ fn main() {
                                     )));
                                     for group in qsection.groups {
                                         let mut hdr = <[u8; 12]>::from(DnsHeader::new(
-                                            header.txid(),
+                                            transcriber.txid(),
                                             header.header_first_half().clone(),
                                             header.header_second_half().clone(),
                                             header.counts().clone(),
@@ -55,11 +55,6 @@ fn main() {
                                             Ok(arr) => {
                                                 hdr.extend(arr);
                                                 let arr = hdr;
-                                                println!(
-                                                    "query: {:?}, {:?}",
-                                                    header.txid(),
-                                                    transcriber.txid()
-                                                );
                                                 if let Err(msg) = udp_socket
                                                     .send_to(arr.as_bytes(), resolver_server)
                                                 {
@@ -79,11 +74,6 @@ fn main() {
                             }
                             QueryResponse::Response => match ansection {
                                 Some(ansection) => {
-                                    println!("{:?}, {:?}", header.txid(), transcriber.txid());
-                                    println!(
-                                        "{:?}, {:?}, {:?}",
-                                        ansection, source, resolver_server
-                                    );
                                     for group in ansection.groups {
                                         match transcriber.receive_and_delete(header.txid(), group) {
                                             Some((pkt, source)) => {
