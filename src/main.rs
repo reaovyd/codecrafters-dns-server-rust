@@ -9,7 +9,7 @@ use std::{
 use dns_starter_rust::{
     buffer::{UdpBuffer, MAX_UDP_PACKET_SIZE},
     converter::{packet::PendingPacket, transcribe::Transcriber},
-    header::{DnsHeader, QueryResponse},
+    header::{DnsHeader, QueryResponse, SectionCount},
 };
 use nom::AsBytes;
 
@@ -48,7 +48,7 @@ fn main() {
                                             transcriber.txid(),
                                             header.header_first_half().clone(),
                                             header.header_second_half().clone(),
-                                            header.counts().clone(),
+                                            SectionCount::new(1, 0, 0, 0),
                                         ))
                                         .to_vec();
                                         match Vec::<u8>::try_from(group) {
