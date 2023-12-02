@@ -33,6 +33,11 @@ fn main() {
                         match header.header_first_half().qr() {
                             QueryResponse::Query => {
                                 if let Some(qsection) = qsection {
+                                    println!(
+                                        "query: {:?}, {:?}",
+                                        header.txid(),
+                                        transcriber.txid()
+                                    );
                                     let pending_pkt = Rc::new(RefCell::new(PendingPacket::new(
                                         (
                                             source,
