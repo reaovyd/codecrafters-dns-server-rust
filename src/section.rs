@@ -97,6 +97,7 @@ impl TryFrom<SectionGroup> for Vec<u8> {
                 .into_iter()
                 .for_each(|byte| res.push(byte))
         }
+        res.push(0);
         let group_type = value.group_type as u8;
         let class = value.class as u8;
         res.push(group_type);
