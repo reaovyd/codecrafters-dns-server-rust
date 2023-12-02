@@ -187,11 +187,11 @@ impl TryFrom<u8> for HeaderSecondRowFirstHalf {
         let rd = value & 0b0000_0001;
 
         Ok(HeaderSecondRowFirstHalf::new(
-            QueryResponse::try_from(qr).unwrap(),
-            OpCode::try_from(opcode).unwrap(),
-            AuthAnswer::try_from(aa).unwrap(),
-            Truncation::try_from(tc).unwrap(),
-            RecursionDesired::try_from(rd).unwrap(),
+            QueryResponse::try_from(qr)?,
+            OpCode::try_from(opcode)?,
+            AuthAnswer::try_from(aa)?,
+            Truncation::try_from(tc)?,
+            RecursionDesired::try_from(rd)?,
         ))
     }
 }
@@ -288,6 +288,7 @@ pub enum OpCode {
     Query = 0,
     IQuery = 1,
     Status = 2,
+    FutureUse = 3,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -331,7 +332,7 @@ impl TryFrom<u8> for OpCode {
             2 => Ok(Self::Status),
             _ => {
                 if (3..=15).contains(&value) {
-                    Err(ParseError::UnimplementedError)
+                    Ok(Self::FutureUse)
                 } else {
                     Err(ParseError::ConversionError)
                 }
