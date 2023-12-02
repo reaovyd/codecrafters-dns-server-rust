@@ -187,11 +187,11 @@ impl TryFrom<u8> for HeaderSecondRowFirstHalf {
         let rd = value & 0b0000_0001;
 
         Ok(HeaderSecondRowFirstHalf::new(
-            QueryResponse::try_from(qr)?,
-            OpCode::try_from(opcode)?,
-            AuthAnswer::try_from(aa)?,
-            Truncation::try_from(tc)?,
-            RecursionDesired::try_from(rd)?,
+            QueryResponse::try_from(qr).unwrap(),
+            OpCode::try_from(opcode).unwrap(),
+            AuthAnswer::try_from(aa).unwrap(),
+            Truncation::try_from(tc).unwrap(),
+            RecursionDesired::try_from(rd).unwrap(),
         ))
     }
 }
