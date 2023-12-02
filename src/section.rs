@@ -95,13 +95,15 @@ impl TryFrom<SectionGroup> for Vec<u8> {
             domain
                 .into_bytes()
                 .into_iter()
-                .for_each(|byte| res.push(byte))
+                .for_each(|byte| res.push(byte));
         }
         res.push(0);
-        let group_type = value.group_type as u8;
-        let class = value.class as u8;
-        res.push(group_type);
-        res.push(class);
+        let group_type = big_endian_convert_u16_to_u8_array(value.group_type as u16);
+        let class = big_endian_convert_u16_to_u8_array(value.class as u16);
+        res.push(group_type[0]);
+        res.push(group_type[1]);
+        res.push(class[0]);
+        res.push(class[1]);
         if let Some((ttl, length, data)) = value.asection {
             big_endian_convert_u32_to_u8_array(ttl)
                 .into_iter()
