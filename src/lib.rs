@@ -2,6 +2,7 @@
 #![warn(missing_debug_implementations)]
 
 pub mod buffer;
+pub mod converter;
 pub mod error;
 pub mod header;
 pub mod section;
