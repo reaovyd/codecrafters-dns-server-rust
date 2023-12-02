@@ -74,7 +74,8 @@ fn main() {
                             }
                             QueryResponse::Response => match ansection {
                                 Some(ansection) => {
-                                    println!("{:?}", header.txid());
+                                    println!("{:?}, {:?}", header.txid(), transcriber.txid());
+                                    println!("{:?}", ansection);
                                     for group in ansection.groups {
                                         match transcriber.receive_and_delete(header.txid(), group) {
                                             Some((pkt, source)) => {
