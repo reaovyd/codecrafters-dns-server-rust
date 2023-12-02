@@ -43,11 +43,6 @@ fn main() {
                                         qsection.groups.len(),
                                         qsection.clone(),
                                     )));
-                                    println!(
-                                        "query: {:?}, {:?}",
-                                        header.txid(),
-                                        transcriber.txid()
-                                    );
                                     for group in qsection.groups {
                                         let mut hdr = <[u8; 12]>::from(DnsHeader::new(
                                             header.txid(),
@@ -60,6 +55,11 @@ fn main() {
                                             Ok(arr) => {
                                                 hdr.extend(arr);
                                                 let arr = hdr;
+                                                println!(
+                                                    "query: {:?}, {:?}",
+                                                    header.txid(),
+                                                    transcriber.txid()
+                                                );
                                                 if let Err(msg) = udp_socket
                                                     .send_to(arr.as_bytes(), resolver_server)
                                                 {
