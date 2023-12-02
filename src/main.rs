@@ -6,7 +6,9 @@ use dns_starter_rust::{
         AuthAnswer, DnsHeader, HeaderSecondRowFirstHalf, HeaderSecondRowSecondHalf, OpCode,
         QueryResponse, RecursionAvailablity, ResponseCode, SectionCount, Truncation,
     },
+    section::Section,
 };
+use nom::AsBytes;
 
 fn main() {
     let udp_socket = UdpSocket::bind("127.0.0.1:2053").expect("Failed to bind to address");
@@ -14,44 +16,66 @@ fn main() {
     loop {
         match udp_socket.recv_from(&mut buf) {
             Ok((_size, _source)) => {
-                let mut udp_buf = UdpBuffer::new(buf);
-                match udp_buf.unpack_dns_header() {
-                    Ok(header) => {
-                        println!("{:?}", udp_buf.read_section(header.counts().qdcount()));
-                        let out_header = DnsHeader::new(
-                            header.txid(),
-                            HeaderSecondRowFirstHalf::new(
-                                QueryResponse::Response,
-                                header.header_first_half().opcode().clone(),
-                                AuthAnswer::NotAuthoritative,
-                                Truncation::NotTruncated,
-                                header.header_first_half().rd().clone(),
-                            ),
-                            HeaderSecondRowSecondHalf::new(
-                                RecursionAvailablity::NoRecursionAvailable,
-                                0,
-                                match header.header_first_half().opcode() {
-                                    OpCode::Query => ResponseCode::None,
-                                    _ => ResponseCode::NotImplemented,
-                                },
-                            )
-                            .expect(
-                                "if it fails, then reserved was something larger than expected...",
-                            ),
-                            SectionCount::new(
-                                header.counts().qdcount(),
-                                header.counts().qdcount(),
-                                0,
-                                0,
-                            ),
-                        );
-                        if let Err(msg) = udp_socket.send_to(&<[u8; 12]>::from(out_header), _source)
-                        {
-                            eprintln!("error sending; {msg}");
+                let udp_buf = UdpBuffer::new(buf);
+                match udp_buf.unpack() {
+                    Ok((header, [qsection, _ansection, _nssection, _arsection])) => {
+                        match qsection {
+                            Some(qsection) => {
+                                let qsection_raw = qsection.raw_domain;
+                                let mut groups = Vec::new();
+                                let mut asection_raw = Vec::new();
+                                for group in qsection.groups {
+                                    let mut new_group = group.clone();
+                                    new_group.asection =
+                                        Some((444, 4, vec![0x12, 0x34, 0x56, 0x78]));
+                                    asection_raw.append(
+                                        &mut Vec::<u8>::try_from(new_group.clone()).unwrap(),
+                                    );
+                                    groups.push(new_group);
+                                }
+                                let ancount = groups.len() as u16;
+                                let res_asection = Section::new(groups, asection_raw);
+                                let out_header = DnsHeader::new(
+                                    header.txid(),
+                                    HeaderSecondRowFirstHalf::new(
+                                        QueryResponse::Response,
+                                        header.header_first_half().opcode().clone(),
+                                        AuthAnswer::NotAuthoritative,
+                                        Truncation::NotTruncated,
+                                        header.header_first_half().rd().clone(),
+                                    ),
+                                    HeaderSecondRowSecondHalf::new(
+                                        RecursionAvailablity::NoRecursionAvailable,
+                                        0,
+                                        match header.header_first_half().opcode() {
+                                            OpCode::Query => ResponseCode::None,
+                                            _ => ResponseCode::NotImplemented,
+                                        },
+                                    )
+                                    .expect(
+                                        "if it fails, then reserved was something larger than expected...",
+                                    ),
+                                    SectionCount::new(
+                                        header.counts().qdcount(),
+                                        ancount,
+                                        0,
+                                        0,
+                                    ),
+                                );
+                                let mut res = <[u8; 12]>::from(out_header).to_vec();
+                                res.extend(qsection_raw);
+                                res.extend(res_asection.raw_domain);
+                                if let Err(msg) = udp_socket.send_to(res.as_bytes(), _source) {
+                                    eprintln!("error sending message! {msg}")
+                                }
+                            }
+                            None => {
+                                eprintln!("Error parsing; missing qsection!");
+                            }
                         }
                     }
                     Err(err) => {
-                        eprintln!("Error parsing; {err}")
+                        eprintln!("Error parsing; {err}");
                     }
                 }
             }

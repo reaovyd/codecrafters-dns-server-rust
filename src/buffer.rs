@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::{
     error::{ParseError, UdpBufferError},
     header::{DnsHeader, HeaderSecondRowFirstHalf, HeaderSecondRowSecondHalf, SectionCount},
-    section::{Class, Type},
+    section::{Class, Section, SectionGroup, Type},
 };
 pub const MAX_UDP_PACKET_SIZE: usize = 512;
 pub const DNS_HEADER_SIZE: usize = 12;
@@ -21,30 +21,79 @@ impl UdpBuffer {
         UdpBuffer { inner, pos: 0 }
     }
 
-    pub fn read_asection(&self) -> anyhow::Result<()> {
-        todo!()
+    fn unpack_asection(&mut self, count: u16) -> anyhow::Result<Section> {
+        let mut cache = BTreeMap::new();
+        let start_of_section = self.pos;
+        for _ in 0..count {
+            let st = self.pos as u16;
+            let domain = self.unpack_domain(&mut cache)?;
+            let t_type = Type::try_from(self.get_u16()?)?;
+            let class = Class::try_from(self.get_u16()?)?;
+            let ttl = self.get_u32()?;
+            let length = self.get_u16()?;
+            let mut data_section = Vec::new();
+            for _ in 0..length {
+                data_section.push(self.get_u8()?);
+            }
+            cache.insert(
+                st,
+                SectionGroup::new(domain, t_type, class, Some((ttl, length, data_section))),
+            );
+        }
+        let end_of_section = self.pos;
+        Ok(Section::new(
+            cache.into_values().collect(),
+            self.inner[start_of_section..end_of_section].to_vec(),
+        ))
     }
 
-    pub fn read_qsection(&self) -> anyhow::Result<()> {
-        todo!()
+    fn unpack_qsection(&mut self, count: u16) -> anyhow::Result<Section> {
+        let mut cache = BTreeMap::new();
+        let start_of_section = self.pos;
+        for _ in 0..count {
+            let st = self.pos as u16;
+            let domain = self.unpack_domain(&mut cache)?;
+            let t_type = Type::try_from(self.get_u16()?)?;
+            let class = Class::try_from(self.get_u16()?)?;
+            cache.insert(st, SectionGroup::new(domain, t_type, class, None));
+        }
+        let end_of_section = self.pos;
+        Ok(Section::new(
+            cache.into_values().collect(),
+            self.inner[start_of_section..end_of_section].to_vec(),
+        ))
     }
 
-    // fn is_pointer_byte(&self) -> anyhow::Result<bool> {
-    //     Ok(self.peek()? & 0xC0 == 0xC0)
-    // }
+    pub fn unpack(mut self) -> anyhow::Result<(DnsHeader, [Option<Section>; 4])> {
+        let dns_header = self.unpack_dns_header()?;
+        let (qdcount, ancount, nscount, arcount) = (
+            dns_header.counts().qdcount(),
+            dns_header.counts().ancount(),
+            dns_header.counts().nscount(),
+            dns_header.counts().arcount(),
+        );
+        let mut sections: [Option<Section>; 4] = [None, None, None, None];
+        if qdcount > 0 {
+            sections[0] = Some(self.unpack_qsection(qdcount)?);
+        }
 
-    // fn unpack_pointer_domain(&mut self) -> anyhow::Result<()> {
-    //     if self.is_pointer_byte()? {
-    //         let offset = self.get_u16()? as usize;
-    //         self.seek(offset)?;
-    //         Ok(())
-    //     } else {
-    //         Ok(())
-    //     }
-    // }
+        if ancount > 0 {
+            sections[1] = Some(self.unpack_asection(ancount)?);
+        }
+
+        if nscount > 0 {
+            sections[2] = Some(self.unpack_asection(nscount)?);
+        }
+
+        if arcount > 0 {
+            sections[3] = Some(self.unpack_asection(arcount)?);
+        }
+        Ok((dns_header, sections))
+    }
+
     fn unpack_domain(
         &mut self,
-        cache: &mut HashMap<u16, (Vec<String>, Type, Class)>,
+        cache: &mut BTreeMap<u16, SectionGroup>,
     ) -> anyhow::Result<Vec<String>> {
         let mut res: Vec<String> = Vec::new();
         loop {
@@ -56,7 +105,7 @@ impl UdpBuffer {
             if len & 0xC0 == 0xC0 {
                 let len = self.get_u16()? & 0b0011_1111_1111_1111;
                 let cached = cache.get(&len).ok_or(ParseError::SectionError)?;
-                for lbl in cached.0.iter() {
+                for lbl in cached.domain().iter() {
                     res.push(lbl.clone());
                 }
                 break;
@@ -80,24 +129,24 @@ impl UdpBuffer {
         Ok(res)
     }
 
-    pub fn read_section(&mut self, count: u16) -> anyhow::Result<()> {
-        let mut cache = HashMap::new();
-        let start_of_section = self.pos;
-        for _ in 0..count {
-            let st = self.pos as u16;
-            let domain = self.unpack_domain(&mut cache)?;
-            let t_type = Type::try_from(self.get_u16()?)?;
-            let class = Class::try_from(self.get_u16()?)?;
-            cache.insert(st, (domain, t_type, class));
-        }
-        let end_of_section = self.pos;
-        println!("{:?}", &self.inner[start_of_section..end_of_section]);
-        println!("{start_of_section} {end_of_section}");
-        println!("{:?}", cache);
-        Ok(())
-    }
+    // fn unpack_section(&mut self, count: u16) -> anyhow::Result<Section> {
+    //     let mut cache = BTreeMap::new();
+    //     let start_of_section = self.pos;
+    //     for _ in 0..count {
+    //         let st = self.pos as u16;
+    //         let domain = self.unpack_domain(&mut cache)?;
+    //         let t_type = Type::try_from(self.get_u16()?)?;
+    //         let class = Class::try_from(self.get_u16()?)?;
+    //         cache.insert(st, SectionGroup::new(domain, t_type, class));
+    //     }
+    //     let end_of_section = self.pos;
+    //     Ok(Section::new(
+    //         cache.into_values().collect(),
+    //         self.inner[start_of_section..end_of_section].to_vec(),
+    //     ))
+    // }
 
-    pub fn unpack_dns_header(&mut self) -> anyhow::Result<DnsHeader> {
+    fn unpack_dns_header(&mut self) -> anyhow::Result<DnsHeader> {
         let txid = self.get_u16()?;
         let first_half = self.get_u8()?;
         let second_half = self.get_u8()?;
@@ -123,7 +172,7 @@ impl UdpBuffer {
         }
     }
 
-    pub fn seek(&mut self, index: usize) -> Result<(), UdpBufferError> {
+    fn seek(&mut self, index: usize) -> Result<(), UdpBufferError> {
         if index >= MAX_UDP_PACKET_SIZE {
             Err(UdpBufferError::Seek { index })
         } else {
@@ -132,11 +181,11 @@ impl UdpBuffer {
         }
     }
 
-    pub fn has_remaining(&mut self) -> bool {
+    fn has_remaining(&mut self) -> bool {
         self.pos >= MAX_UDP_PACKET_SIZE
     }
 
-    pub fn peek(&self) -> Result<u8, UdpBufferError> {
+    fn peek(&self) -> Result<u8, UdpBufferError> {
         if self.pos >= MAX_UDP_PACKET_SIZE {
             Err(UdpBufferError::EndOfBuffer)
         } else {
@@ -144,17 +193,17 @@ impl UdpBuffer {
         }
     }
 
-    pub fn get_u8(&mut self) -> Result<u8, UdpBufferError> {
+    fn get_u8(&mut self) -> Result<u8, UdpBufferError> {
         self.read()
     }
 
-    pub fn get_u16(&mut self) -> Result<u16, UdpBufferError> {
+    fn get_u16(&mut self) -> Result<u16, UdpBufferError> {
         let mut res = (self.read()? as u16) << 8;
         res |= self.read()? as u16;
         Ok(res)
     }
 
-    pub fn get_u32(&mut self) -> Result<u32, UdpBufferError> {
+    fn get_u32(&mut self) -> Result<u32, UdpBufferError> {
         let mut res = (self.get_u16()? as u32) << 8;
         res |= self.get_u16()? as u32;
         Ok(res)
@@ -196,7 +245,7 @@ mod tests {
         });
         let mut buf = UdpBuffer::new(buf);
         let hdr = buf.unpack_dns_header().unwrap();
-        buf.read_section(hdr.counts().qdcount()).unwrap();
+        // buf.unpack_section(hdr.counts().qdcount()).unwrap();
         // buf[12] = 6;
         // "google"
         //     .as_bytes()
