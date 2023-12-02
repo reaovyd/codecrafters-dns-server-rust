@@ -97,7 +97,6 @@ fn main() {
                                 }
 
                                 None => {
-                                    println!("{:?}, {:?}", buf, header);
                                     eprintln!("Couldn't get an asection here...")
                                 }
                             },
