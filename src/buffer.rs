@@ -110,6 +110,7 @@ impl UdpBuffer {
             sections[0] = Some(self.unpack_section(qdcount, false)?);
         }
 
+        println!("{:?}", nscount);
         if ancount > 0 {
             sections[1] = Some(self.unpack_section(ancount, true)?);
         }
