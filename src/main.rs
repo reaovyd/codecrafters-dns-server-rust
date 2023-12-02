@@ -26,8 +26,7 @@ fn main() {
                                 let mut asection_raw = Vec::new();
                                 for group in qsection.groups {
                                     let mut new_group = group.clone();
-                                    new_group.asection =
-                                        Some((444, 4, vec![0x12, 0x34, 0x56, 0x78]));
+                                    new_group.asection = Some((444, 4, vec![76, 76, 21, 21]));
                                     asection_raw.append(
                                         &mut Vec::<u8>::try_from(new_group.clone()).unwrap(),
                                     );
