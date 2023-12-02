@@ -72,11 +72,13 @@ impl UdpBuffer {
             dns_header.counts().nscount(),
             dns_header.counts().arcount(),
         );
+        println!("1. PARSING QSECTION HELLO WORLD!!!!");
         let mut sections: [Option<Section>; 4] = [None, None, None, None];
         if qdcount > 0 {
             sections[0] = Some(self.unpack_qsection(qdcount)?);
         }
 
+        println!("1. PARSING ASECTION HELLO WORLD!!!!");
         if ancount > 0 {
             sections[1] = Some(self.unpack_asection(ancount)?);
         }
