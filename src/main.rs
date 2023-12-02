@@ -49,7 +49,12 @@ fn main() {
                                             transcriber.txid(),
                                             header.header_first_half().clone(),
                                             header.header_second_half().clone(),
-                                            SectionCount::new(1, 0, 0, 0),
+                                            SectionCount::new(
+                                                1,
+                                                header.counts().ancount(),
+                                                header.counts().nscount(),
+                                                header.counts().arcount(),
+                                            ),
                                         ))
                                         .to_vec();
                                         match Vec::<u8>::try_from(group) {
