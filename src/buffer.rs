@@ -134,8 +134,8 @@ impl UdpBuffer {
         let arcount = self.get_u16()?;
         Ok(DnsHeader::new(
             txid,
-            HeaderSecondRowFirstHalf::try_from(first_half)?,
-            HeaderSecondRowSecondHalf::try_from(second_half)?,
+            HeaderSecondRowFirstHalf::try_from(first_half).unwrap(),
+            HeaderSecondRowSecondHalf::try_from(second_half).unwrap(),
             SectionCount::new(qdcount, ancount, nscount, arcount),
         ))
     }

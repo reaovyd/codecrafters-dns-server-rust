@@ -6,7 +6,6 @@ pub enum ParseError {
     ConversionError,
     #[error("no specification for the implementation for conversion here yet")]
     UnimplementedError,
-
     #[error("too many bits. found {found:?}; overflow error")]
     OverflowError { found: u8 },
     #[error("section parsing failed")]
